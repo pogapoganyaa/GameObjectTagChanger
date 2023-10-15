@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PogapogaEditor.Component
@@ -8,6 +9,7 @@ namespace PogapogaEditor.Component
     {
         [HideInInspector] public string tagName = "Untagged";
         public List<GameObject> targetObjects = new List<GameObject>();
+        public GameObject rootObject;
 
         public void ChangeGameObjectTag()
         {
@@ -17,6 +19,14 @@ namespace PogapogaEditor.Component
                     continue;
                 targetObject.tag = tagName;
             }
+        }
+        public void SearchTagObject()
+        {
+            targetObjects.Clear();
+            targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
+                        .Where(t => t.gameObject.tag == tagName)
+                        .Select(t => t.gameObject)
+                        .ToList();
         }
     }
 }

@@ -13,11 +13,18 @@ namespace PogapogaEditor.Component
         bool _isOpen = false;
         float _spaceHeight = 10;
 
+        public void OnEnable()
+        {
+            serializedObject.Update();
+        }
+
         public override void OnInspectorGUI()
         {
             GameObjectTagChanger changer = (GameObjectTagChanger)target;
 
             serializedObject.Update();
+
+            changer.rootObject = EditorGUILayout.ObjectField("RootObject", changer.rootObject, typeof(GameObject), true) as GameObject;
 
             #region // Tagの表示
             _tag = serializedObject.FindProperty("tagName");
@@ -68,7 +75,19 @@ namespace PogapogaEditor.Component
             EditorGUILayout.Space(_spaceHeight);
             if (GUILayout.Button("List内のGameObjectを選択状態にします")) { Selection.objects = changer.targetObjects.ToArray(); }
             EditorGUILayout.Space(_spaceHeight);
+
+            if (GUILayout.Button($"RootObjectからTagが{changer.tagName}のものを取得します"))
+            {
+                if (changer.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectからTagが{changer.tagName}のものを取得します", "処理開始", "キャンセル");
+                if (dialogFlag == true)
+                {
+                    changer.SearchTagObject();
+                }
+            }
+            EditorGUILayout.Space(_spaceHeight);
             #endregion
+
         }
     }
 }
