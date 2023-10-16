@@ -16,12 +16,14 @@ namespace PogapogaEditor.Component
     {
         #region // Tag変更処理用
         public string[] tagNames = new string[] { "Untagged", "EditorOnly" };
-        public List<GameObject> targetObjects = new List<GameObject>();
+        public GameObject[] targetObjects;
         #endregion
 
         #region // 設定の対象・対象外処理用
         public Dictionary<GameObject, bool> targetFlagDict = new Dictionary<GameObject, bool>();
         public bool targetFlagAllEnabled = true;
+        public GameObject[] flagKeys;
+        public bool[] flagValues;
         #endregion
 
         #region // 検索用
@@ -49,11 +51,10 @@ namespace PogapogaEditor.Component
         public void SearchTagObject(string _searchTagName)
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.gameObject.tag == _searchTagName)
                         .Select(t => t.gameObject)
-                        .ToList();
+                        .ToArray();
 
             ResetDictionaryFlags();
             Debug.Log($"RootObjectからTagが{searchTagName}のものを取得しました");
@@ -62,11 +63,10 @@ namespace PogapogaEditor.Component
         public void SearchContainsNameObject()
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.Contains(searchName) == true)
                         .Select(t => t.gameObject)
-                        .ToList();
+                        .ToArray();
 
             ResetDictionaryFlags();
             Debug.Log($"RootObjectから{searchName}を含むGameObjectを取得しました");
@@ -75,11 +75,10 @@ namespace PogapogaEditor.Component
         public void SearchStartWishNameObject()
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.StartsWith(searchName) == true)
                         .Select(t => t.gameObject)
-                        .ToList();
+                        .ToArray();
 
             ResetDictionaryFlags();
             Debug.Log($"RootObjectから{searchName}で始まるGameObjectを取得しました");
@@ -87,11 +86,10 @@ namespace PogapogaEditor.Component
         public void SearchEndsWithNameObject()
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.EndsWith(searchName) == true)
                         .Select(t => t.gameObject)
-                        .ToList();
+                        .ToArray();
 
             ResetDictionaryFlags(); 
             Debug.Log($"RootObjectから{searchName}で終わるGameObjectを取得しました");
@@ -99,20 +97,22 @@ namespace PogapogaEditor.Component
         public void GetChildObjects()
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
+            List<GameObject> tmpGameObjects = new List<GameObject>();
             for (int i = 0; i < rootObject.transform.childCount; i++)
             {
-                targetObjects.Add(rootObject.transform.GetChild(i).gameObject);
+                tmpGameObjects.Add(rootObject.transform.GetChild(i).gameObject);
             }
+            targetObjects = tmpGameObjects.ToArray();
             ResetDictionaryFlags();
             Debug.Log($"RootObjectの子のGameObjectを取得しました");
         }
         public void GetAllObjects()
         {
             Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
-            targetObjects.Clear();
-            targetObjects = rootObject.GetComponentsInChildren<GameObject>(true).ToList();
-            targetObjects.Remove(rootObject);
+            List<GameObject> tmpGameObjects;
+            tmpGameObjects = rootObject.GetComponentsInChildren<GameObject>(true).ToList();
+            tmpGameObjects.Remove(rootObject);
+            targetObjects = tmpGameObjects.ToArray();
             ResetDictionaryFlags();
             Debug.Log($"RootObject下の全てのGameObjectを取得しました");
         }
@@ -123,28 +123,45 @@ namespace PogapogaEditor.Component
         {
             targetFlagAllEnabled = true;
             targetFlagDict.Clear();
-            for (int i = 0; i < targetObjects.Count; i++)
+            for (int i = 0; i < targetObjects.Length; i++)
             {
                 if (targetFlagDict.ContainsKey(targetObjects[i]) == true) { continue; }
                 targetFlagDict.Add (targetObjects[i].gameObject, true);
             }
+            SaveDictionary();
         }
 
         public void UpdateDictionaryFlags()
         {
-            GameObject[] keys = targetFlagDict.Keys.ToArray();
-            for (int i = 0; i < keys.Length; i++)
+            for (int i = 0; i < flagKeys.Length; i++)
             {
-                if (targetObjects.Contains(keys[i]) == false)
+                if (targetObjects.Contains(flagKeys[i]) == false)
                 {
-                    targetFlagDict.Remove(keys[i]);
+                    targetFlagDict.Remove(flagKeys[i]);
                 }
             }
 
-            for (int i = 0;i < targetObjects.Count; i++)
+            for (int i = 0;i < targetObjects.Length; i++)
             {
                 if(targetFlagDict.ContainsKey(targetObjects[i]) == true) { continue; }
                 targetFlagDict.Add(targetObjects[i].gameObject, true);
+            }
+            SaveDictionary();
+        }
+        #endregion
+
+        #region // Dictionaryに関する処理
+        public void SaveDictionary()
+        {
+            flagKeys = targetFlagDict.Keys.ToArray();
+            flagValues = targetFlagDict.Values.ToArray();
+        }
+        public void LoadDictionary()
+        {
+            targetFlagDict.Clear();
+            for (int i = 0; i<flagKeys.Length; i++)
+            {
+                targetFlagDict.Add(flagKeys[i], flagValues[i]);
             }
         }
         #endregion
@@ -179,6 +196,8 @@ namespace PogapogaEditor.Component
         public void OnEnable()
         {
             tagChanger = (GameObjectTagChangerVRChatOnly)target;
+            // Dictionaryの復元処理
+            tagChanger.LoadDictionary();
         }
 
         public override void OnInspectorGUI()
@@ -302,11 +321,13 @@ namespace PogapogaEditor.Component
                         bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectから{tagChanger.searchName}で終わるGameObjectを取得します", "処理開始", "キャンセル");
                         if (dialogFlag == true)
                         {
-                            tagChanger.SearchEndsWithNameObject();
+                            tagChanger.SearchEndsWithNameObject(); 
+                            EditorUtility.SetDirty(tagChanger);
                         }
                     }
                     EditorGUI.indentLevel--;
                 }
+                #region // 階層で取得
                 _isOpenHierarchy = EditorGUILayout.Foldout(_isOpenHierarchy, "階層で取得");
                 if (_isOpenHierarchy == true)
                 {
@@ -332,12 +353,13 @@ namespace PogapogaEditor.Component
             _isOpenEnabled = EditorGUILayout.Foldout(_isOpenEnabled, "Tagの変更処理の対象・対象外設定");
             if (_isOpenEnabled)
             {
-                if (tagChanger.targetObjects.Count == 0)
+                if (tagChanger.targetObjects.Length == 0)
                 {
                     EditorGUILayout.HelpBox("対象となるGameObjectが設定されていません", MessageType.Warning);
                 }
 
-                for (int i = 0; i < tagChanger.targetObjects.Count; i++)
+                EditorGUI.BeginChangeCheck();
+                for (int i = 0; i < tagChanger.targetObjects.Length; i++)
                 {
                     GameObject keyObject;
                     keyObject = tagChanger.targetObjects[i];
@@ -369,6 +391,11 @@ namespace PogapogaEditor.Component
                         EditorGUILayout.ObjectField(keyObject, typeof(GameObject), true);
                     }
                 }
+                if (EditorGUI.EndChangeCheck())
+                {
+                    tagChanger.SaveDictionary();
+                    EditorUtility.SetDirty(tagChanger);
+                }
             }
             #endregion
 
@@ -376,7 +403,7 @@ namespace PogapogaEditor.Component
             _isOpenOther = EditorGUILayout.Foldout(_isOpenOther, "その他");
             if ( _isOpenOther )
             {
-                if (tagChanger.targetObjects.Count == 0)
+                if (tagChanger.targetObjects.Length == 0)
                 {
                     EditorGUILayout.HelpBox("対象となるGameObjectが設定されていません", MessageType.Warning);
                 }
