@@ -40,9 +40,12 @@ namespace PogapogaEditor.Component
             Undo.RecordObjects(targetObjects.ToArray(), "GameObjectTagChangerVRChatOnly");
             foreach (GameObject targetObject in targetObjects)
             {
-                if (targetObject == null)
-                    continue;
-                targetObject.tag = _tagName;
+                if (targetObject == null) { continue; }
+                
+                if (targetFlagDict[targetObject] == true)
+                {
+                    targetObject.tag = _tagName;
+                }
             }
             Debug.Log($"Tagを{_tagName}に設定しました");
         }
@@ -209,8 +212,8 @@ namespace PogapogaEditor.Component
             EditorGUI.BeginDisabledGroup(true);
             EditorGUILayout.ObjectField("Script", MonoScript.FromMonoBehaviour((MonoBehaviour)target), typeof(MonoScript), false);
             EditorGUI.EndDisabledGroup();
-            EditorGUILayout.LabelField("List内のGameObjectのTagを変更します", EditorStyles.boldLabel);
 
+            EditorGUILayout.LabelField("List内のGameObjectのTagを変更します", EditorStyles.boldLabel);
 
             #region // Tagの表示
             for (int i = 0; i < tagChanger.tagNames.Length; i++)
@@ -245,7 +248,7 @@ namespace PogapogaEditor.Component
             EditorGUILayout.EndFoldoutHeaderGroup();
             #endregion
 
-
+            
             #region // 実行用ボタン
             EditorGUILayout.Space(_spaceHeight);
             for (int i = 0; i < tagChanger.tagNames.Length; i++)
@@ -284,6 +287,7 @@ namespace PogapogaEditor.Component
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchTagObject(tagChanger.searchTagName);
+                            EditorUtility.SetDirty(tagChanger);
                         }
                     }
                 }
@@ -304,6 +308,7 @@ namespace PogapogaEditor.Component
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchContainsNameObject();
+                            EditorUtility.SetDirty(tagChanger);
                         }
                     }
                     if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で始まるGameObjectを検索"))
@@ -313,6 +318,7 @@ namespace PogapogaEditor.Component
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchStartWishNameObject();
+                            EditorUtility.SetDirty(tagChanger);
                         }
                     }
                     if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で終わるGameObjectを検索"))
@@ -335,16 +341,18 @@ namespace PogapogaEditor.Component
                     if (GUILayout.Button("RootObjectの子のGameObjectを取得"))
                     {
                         tagChanger.GetChildObjects();
+                        EditorUtility.SetDirty(tagChanger);
                     }
                     if (GUILayout.Button("RootObject下の全てのGameObjectを取得"))
                     {
                         tagChanger.GetAllObjects();
+                        EditorUtility.SetDirty(tagChanger);
                     }
                     EditorGUI.indentLevel--;
                 }
                 EditorGUI.indentLevel--;
                 #endregion
-
+                #endregion
 
             }
             #endregion
@@ -417,6 +425,7 @@ namespace PogapogaEditor.Component
                 }
             }
             #endregion
+
             serializedObject.ApplyModifiedProperties();
         }  
     }
