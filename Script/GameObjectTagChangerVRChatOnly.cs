@@ -1,12 +1,14 @@
 ﻿#if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using VRC.SDK3.Dynamics.PhysBone.Components;
 using VRC.SDKBase;
 
-namespace PogapogaEditor.Component
+namespace PogapogaEditor.PogapogaComponent
 {
     /// <summary>
     /// List内のGameObjectのTagをまとめて変更します。
@@ -16,28 +18,44 @@ namespace PogapogaEditor.Component
     {
         #region // Tag変更処理用
         public string[] tagNames = new string[] { "Untagged", "EditorOnly" };
-        public GameObject[] targetObjects;
+        public GameObject[] targetObjects = new GameObject[0];
         #endregion
 
         #region // 設定の対象・対象外処理用
         public Dictionary<GameObject, bool> targetFlagDict = new Dictionary<GameObject, bool>();
         public bool targetFlagAllEnabled = true;
-        public GameObject[] flagKeys;
-        public bool[] flagValues;
+        public GameObject[] flagKeys = new GameObject[0];
+        public bool[] flagValues = new bool[0];
         #endregion
 
         #region // 検索用
         public GameObject rootObject;
         public string searchTagName = "Untagged";
         public string searchName = "◯◯";
+        public SkinnedMeshRenderer targetSkinnedMeshRenderer;
+        public string searchComponentName = "◯◯";
         #endregion
+
+        #region // FoldOut        
+        public bool isOpenTargetList = false;
+        public bool isOpenSearch = false;
+        public bool isOpenSearchTagName = false;
+        public bool isOpenSearchObjectName = false;
+        public bool isOpenEnabled = false;
+        public bool isOpenOther = false;
+        public bool isOpenHierarchy = false;
+        public bool isOpenSkinnedMeshRenderer = false;
+        public bool isOpenCommponent = false;
+        #endregion
+
+        [Tooltip("確認用ダイアログの表示を省略する")] public bool skipConfirmation = false;
 
         /// <summary>
         /// Tagの変更処理
         /// </summary>
         public void ChangeGameObjectTag(string _tagName)
         {
-            Undo.RecordObjects(targetObjects.ToArray(), "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObjects(targetObjects, nameof(GameObjectTagChangerVRChatOnly));
             foreach (GameObject targetObject in targetObjects)
             {
                 if (targetObject == null) { continue; }
@@ -50,10 +68,10 @@ namespace PogapogaEditor.Component
             Debug.Log($"Tagを{_tagName}に設定しました");
         }
 
-        #region 検索処理
+        #region 検索取得処理
         public void SearchTagObject(string _searchTagName)
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.gameObject.tag == _searchTagName)
                         .Select(t => t.gameObject)
@@ -65,7 +83,7 @@ namespace PogapogaEditor.Component
 
         public void SearchContainsNameObject()
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.Contains(searchName) == true)
                         .Select(t => t.gameObject)
@@ -77,7 +95,7 @@ namespace PogapogaEditor.Component
 
         public void SearchStartWishNameObject()
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.StartsWith(searchName) == true)
                         .Select(t => t.gameObject)
@@ -88,7 +106,7 @@ namespace PogapogaEditor.Component
         }
         public void SearchEndsWithNameObject()
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             targetObjects = rootObject.GetComponentsInChildren<Transform>(true)
                         .Where(t => t.name.EndsWith(searchName) == true)
                         .Select(t => t.gameObject)
@@ -99,7 +117,7 @@ namespace PogapogaEditor.Component
         }
         public void GetChildObjects()
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             List<GameObject> tmpGameObjects = new List<GameObject>();
             for (int i = 0; i < rootObject.transform.childCount; i++)
             {
@@ -111,13 +129,27 @@ namespace PogapogaEditor.Component
         }
         public void GetAllObjects()
         {
-            Undo.RecordObject(this, "GameObjectTagChangerVRChatOnly");
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             List<GameObject> tmpGameObjects;
-            tmpGameObjects = rootObject.GetComponentsInChildren<GameObject>(true).ToList();
+            tmpGameObjects = rootObject.GetComponentsInChildren<Transform>(true).Select(t => t.gameObject).ToList();
             tmpGameObjects.Remove(rootObject);
             targetObjects = tmpGameObjects.ToArray();
             ResetDictionaryFlags();
             Debug.Log($"RootObject下の全てのGameObjectを取得しました");
+        }
+        public void GetSkinnedMeshRendererBonesObjects()
+        {
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+            targetObjects = targetSkinnedMeshRenderer.bones.Select(b => b.gameObject).ToArray(); 
+            ResetDictionaryFlags();
+            Debug.Log($"SkinnedMeshRendererのBonesのGameObjectを取得しました");
+        }
+        public void SearchComponentName(string componentName)
+        {
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+            targetObjects = rootObject.GetComponentsInChildren<Component>(true).Where(c => c.GetType().Name == componentName).Select(c => c.gameObject).ToArray();
+            ResetDictionaryFlags();
+            Debug.Log($"{componentName}のGameObjectを取得しました");
         }
         #endregion
 
@@ -156,6 +188,7 @@ namespace PogapogaEditor.Component
         #region // Dictionaryに関する処理
         public void SaveDictionary()
         {
+            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
             flagKeys = targetFlagDict.Keys.ToArray();
             flagValues = targetFlagDict.Values.ToArray();
         }
@@ -169,8 +202,10 @@ namespace PogapogaEditor.Component
         }
         #endregion
 
+        // 初回にOnInspectorGUIよりも先に処理が走る
         private void OnValidate()
         {
+            LoadDictionary();
             UpdateDictionaryFlags();
         }
     }
@@ -187,7 +222,7 @@ namespace PogapogaEditor.Component
         private float _spaceHeight = 10;
         private float _toggleWidh = 20;
 
-        private bool _isOpenTargetList = false;
+        private bool _isOpenTargetList;
         private bool _isOpenSearch;
         private bool _isOpenSearchTagName;
         private bool _isOpenSearchObjectName;
@@ -195,12 +230,29 @@ namespace PogapogaEditor.Component
         private bool _isOpenOther;
         private bool _isOpenHierarchy;
         private bool _targetFlagAllEnabled;
+        private bool _isOpenCommponent;
+        private bool _skipConfirmation;
 
         public void OnEnable()
         {
             tagChanger = (GameObjectTagChangerVRChatOnly)target;
             // Dictionaryの復元処理
             tagChanger.LoadDictionary();
+            if (tagChanger.rootObject == null ) 
+            {
+                tagChanger.rootObject = tagChanger.gameObject;
+            }
+        }
+
+        private bool DisplayDialog(string message)
+        {
+            if (tagChanger.skipConfirmation == true)
+            {
+                return true;
+            }
+
+            bool dialogFlag = EditorUtility.DisplayDialog(nameof(GameObjectTagChangerVRChatOnly), message, "処理開始", "キャンセル");
+            return dialogFlag;
         }
 
         public override void OnInspectorGUI()
@@ -209,11 +261,7 @@ namespace PogapogaEditor.Component
             _tagNames = serializedObject.FindProperty("tagNames");
             _searchTagName = serializedObject.FindProperty("searchTagName");
 
-            EditorGUI.BeginDisabledGroup(true);
-            EditorGUILayout.ObjectField("Script", MonoScript.FromMonoBehaviour((MonoBehaviour)target), typeof(MonoScript), false);
-            EditorGUI.EndDisabledGroup();
-
-            EditorGUILayout.LabelField("List内のGameObjectのTagを変更します", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("List内のGameObjectのTagを変更するツールです", EditorStyles.boldLabel);
 
             #region // Tagの表示
             for (int i = 0; i < tagChanger.tagNames.Length; i++)
@@ -227,9 +275,10 @@ namespace PogapogaEditor.Component
             EditorGUILayout.PropertyField(targetProperty);
             #endregion
 
+            # if UNITY_2019
             #region // Listの並べ替え
             _isOpenTargetList = EditorGUILayout.BeginFoldoutHeaderGroup(_isOpenTargetList, "Listの並べ替え");
-            if (_isOpenTargetList)
+            if (_isOpenTargetList == true)
             {
                 if (_targetObjects == null)
                 {
@@ -247,43 +296,42 @@ namespace PogapogaEditor.Component
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
             #endregion
+            #endif
 
-            
             #region // 実行用ボタン
             EditorGUILayout.Space(_spaceHeight);
             for (int i = 0; i < tagChanger.tagNames.Length; i++)
             {
-                if (GUILayout.Button($"Tagを{tagChanger.tagNames[i]}に設定します"))
+                if (GUILayout.Button($"Tagを{tagChanger.tagNames[i]}に設定する"))
                 {
-                    bool dialogFlag = EditorUtility.DisplayDialog("タグの変更", $"Tagを{tagChanger.tagNames[i]}に設定します", "処理開始", "キャンセル");
+                    bool dialogFlag = this.DisplayDialog($"Tagを{tagChanger.tagNames[i]}に設定する");
                     if (dialogFlag == true)
                     {
-                        foreach (GameObject targetObject in tagChanger.targetObjects) { if (targetObject != null) { Undo.RecordObject(targetObject, "Tagの変更"); } }
                         tagChanger.ChangeGameObjectTag(tagChanger.tagNames[i]);
                     }
                 }
             }
-
             #endregion
 
             #region // 検索に関する項目
-            _isOpenSearch = EditorGUILayout.Foldout(_isOpenSearch, "GameObjectの検索・取得に関する項目");
-            if(_isOpenSearch)
+            tagChanger.isOpenSearch = EditorGUILayout.Foldout(tagChanger.isOpenSearch, "GameObjectの検索・取得に関する項目");
+            if(tagChanger.isOpenSearch == true)
             {
                 // 検索用のRootObjectの設定
                 tagChanger.rootObject = EditorGUILayout.ObjectField("検索対象のRootObject", tagChanger.rootObject, typeof(GameObject), true) as GameObject;
 
                 #region // Tagで検索
                 EditorGUI.indentLevel++;
-                _isOpenSearchTagName = EditorGUILayout.Foldout(_isOpenSearchTagName, "Tagで検索");
-                if (_isOpenSearchTagName == true)
+                tagChanger.isOpenSearchTagName = EditorGUILayout.Foldout(tagChanger.isOpenSearchTagName, "Tagで検索・取得");
+                if (tagChanger.isOpenSearchTagName == true)
                 {
-                    tagChanger.searchTagName = EditorGUILayout.TagField("検索するTagを選択してください", _searchTagName.stringValue);
+                    tagChanger.searchTagName = EditorGUILayout.TagField("検索・取得するTagを選択してください", _searchTagName.stringValue);
 
-                    if (GUILayout.Button($"RootObjectからTagが{tagChanger.searchTagName}のものを取得します"))
+                    if (GUILayout.Button($"RootObjectからTagが{tagChanger.searchTagName}のものを検索・取得"))
                     {
                         if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
-                        bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectからTagが{tagChanger.searchTagName}のものを取得します", "処理開始", "キャンセル");
+
+                        bool dialogFlag = this.DisplayDialog($"RootObjectからTagが{tagChanger.searchTagName}のものを検索・取得");
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchTagObject(tagChanger.searchTagName);
@@ -296,77 +344,182 @@ namespace PogapogaEditor.Component
 
                 #region // 文字列で検索
                 EditorGUI.indentLevel++;
-                _isOpenSearchObjectName = EditorGUILayout.Foldout(_isOpenSearchObjectName, "文字列で検索");
-                if (_isOpenSearchObjectName == true)
+                tagChanger.isOpenSearchObjectName = EditorGUILayout.Foldout(tagChanger.isOpenSearchObjectName, "文字列で検索・取得");
+                if (tagChanger.isOpenSearchObjectName == true)
                 {
-                    EditorGUI.indentLevel++;
-                    tagChanger.searchName = EditorGUILayout.TextField("検索用文字列", tagChanger.searchName);
-                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}を含むGameObjectを検索"))
+                    string _searchName = EditorGUILayout.TextField("検索用文字列", tagChanger.searchName);
+                    if (_searchName != tagChanger.searchName) 
+                    {
+                        tagChanger.searchName = _searchName;
+                        EditorUtility.SetDirty(tagChanger);
+                    }
+                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}を含むGameObjectを検索・取得"))
                     {
                         if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
-                        bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectから{tagChanger.searchName}を含むGameObjectを取得します", "処理開始", "キャンセル");
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{tagChanger.searchName}を含むGameObjectを検索・取得");
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchContainsNameObject();
                             EditorUtility.SetDirty(tagChanger);
                         }
                     }
-                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で始まるGameObjectを検索"))
+                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で始まるGameObjectを検索・取得"))
                     {
                         if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
-                        bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectから{tagChanger.searchName}で始まるGameObjectを取得します", "処理開始", "キャンセル");
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{tagChanger.searchName}で始まるGameObjectを検索・取得");
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchStartWishNameObject();
                             EditorUtility.SetDirty(tagChanger);
                         }
                     }
-                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で終わるGameObjectを検索"))
+                    if (GUILayout.Button($"RootObjectから{tagChanger.searchName}で終わるGameObjectを検索・取得"))
                     {
                         if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
-                        bool dialogFlag = EditorUtility.DisplayDialog("GameObjectの取得", $"RootObjectから{tagChanger.searchName}で終わるGameObjectを取得します", "処理開始", "キャンセル");
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{tagChanger.searchName}で終わるGameObjectを検索・取得");
                         if (dialogFlag == true)
                         {
                             tagChanger.SearchEndsWithNameObject(); 
                             EditorUtility.SetDirty(tagChanger);
                         }
                     }
-                    EditorGUI.indentLevel--;
                 }
                 #region // 階層で取得
-                _isOpenHierarchy = EditorGUILayout.Foldout(_isOpenHierarchy, "階層で取得");
-                if (_isOpenHierarchy == true)
+                tagChanger.isOpenHierarchy = EditorGUILayout.Foldout(tagChanger.isOpenHierarchy, "階層で取得");
+                if (tagChanger.isOpenHierarchy == true)
                 {
                     EditorGUI.indentLevel++;
                     if (GUILayout.Button("RootObjectの子のGameObjectを取得"))
                     {
-                        tagChanger.GetChildObjects();
-                        EditorUtility.SetDirty(tagChanger);
+                        bool dialogFlag = this.DisplayDialog("RootObjectの子のGameObjectを取得");
+                        if (dialogFlag == true)
+                        {
+                            if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                            tagChanger.GetChildObjects();
+                            EditorUtility.SetDirty(tagChanger);
+
+                        }
                     }
                     if (GUILayout.Button("RootObject下の全てのGameObjectを取得"))
                     {
-                        tagChanger.GetAllObjects();
-                        EditorUtility.SetDirty(tagChanger);
+                        bool dialogFlag = this.DisplayDialog("RootObject下の全てのGameObjectを取得");
+                        if (dialogFlag == true)
+                        {
+                            if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                            tagChanger.GetAllObjects();
+                            EditorUtility.SetDirty(tagChanger);
+                        }
                     }
                     EditorGUI.indentLevel--;
                 }
-                EditorGUI.indentLevel--;
+                
                 #endregion
+                #region // SkinnedMeshrendereのBonesを取得
+                tagChanger.isOpenSkinnedMeshRenderer = EditorGUILayout.Foldout(tagChanger.isOpenSkinnedMeshRenderer, "SkinnedMeshRendererのBonesを取得");
+                if (tagChanger.isOpenSkinnedMeshRenderer == true)
+                {
+                    SkinnedMeshRenderer skinnedMeshRenderer;
+                    skinnedMeshRenderer = EditorGUILayout.ObjectField(nameof(SkinnedMeshRenderer), tagChanger.targetSkinnedMeshRenderer, typeof(SkinnedMeshRenderer), true) as SkinnedMeshRenderer;
+                    if (skinnedMeshRenderer != tagChanger.targetSkinnedMeshRenderer)
+                    {
+                        Undo.RecordObject(tagChanger, nameof(GameObjectTagChangerVRChatOnly));
+                        tagChanger.targetSkinnedMeshRenderer = skinnedMeshRenderer;
+                        EditorUtility.SetDirty(tagChanger);
+                    }
+                    if (GUILayout.Button("SkinnedMeshRendererのBonesを取得"))
+                    {
+                        if (tagChanger.targetSkinnedMeshRenderer == null) { Debug.LogWarning("SkinnedMeshRendererが設定されていません"); return; }
+                        tagChanger.GetSkinnedMeshRendererBonesObjects();
+                        EditorUtility.SetDirty(tagChanger);
+                    }
+                }
+
+                #endregion
+                #region // Commponentで検索
+                tagChanger.isOpenCommponent = EditorGUILayout.Foldout(tagChanger.isOpenCommponent, "Commponentで検索・取得");
+                if (tagChanger.isOpenCommponent == true)
+                {
+                    string _searchComponentName = EditorGUILayout.TextField("検索用文字列", tagChanger.searchComponentName);
+                    if (_searchComponentName != tagChanger.searchComponentName)
+                    {
+                        Undo.RecordObject(tagChanger, nameof(GameObjectTagChangerVRChatOnly));
+                        tagChanger.searchComponentName = _searchComponentName;
+                        EditorUtility.SetDirty(tagChanger); 
+                    }
+                    if (GUILayout.Button($"RootObjectから{tagChanger.searchComponentName}を含むGameObjectを検索・取得"))
+                    {
+                        if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{tagChanger.searchComponentName}を含むGameObjectを検索・取得する");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+                            tagChanger.SearchComponentName(nameof(VRCPhysBone));
+                            tagChanger.ResetDictionaryFlags();
+                            Debug.Log($"RootObjectから{nameof(VRCPhysBone)}を含むGameObjectを取得しました");
+                            EditorUtility.SetDirty(tagChanger);
+                        }
+                    }
+                    if (GUILayout.Button($"RootObjectから{nameof(VRCPhysBone)}を含むGameObjectを検索・取得"))
+                    {
+                        if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{nameof(VRCPhysBone)}を含むGameObjectを検索・取得する");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+                            tagChanger.SearchComponentName(nameof(VRCPhysBone));
+                            tagChanger.ResetDictionaryFlags();
+                            Debug.Log($"RootObjectから{nameof(VRCPhysBone)}を含むGameObjectを取得しました");
+                            EditorUtility.SetDirty(tagChanger);                            
+                        }
+                    }
+
+                    if (GUILayout.Button($"RootObjectから{nameof(VRCPhysBoneCollider)}を含むGameObjectを検索・取得"))
+                    {
+                        if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{nameof(VRCPhysBoneCollider)}を含むGameObjectを検索・取得する");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+                            tagChanger.SearchComponentName(nameof(VRCPhysBoneCollider));
+                            Debug.Log($"RootObjectから{nameof(VRCPhysBone)}を含むGameObjectを取得しました");
+                            EditorUtility.SetDirty(tagChanger);
+                        }
+                    }
+
+                    if (GUILayout.Button($"RootObjectから{nameof(ParticleSystem)}を含むGameObjectを検索・取得"))
+                    {
+                        if (tagChanger.rootObject == null) { Debug.LogWarning("RootObjectが設定されていません"); return; }
+                        bool dialogFlag = this.DisplayDialog($"RootObjectから{nameof(ParticleSystem)}を含むGameObjectを検索・取得する");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObject(this, nameof(GameObjectTagChangerVRChatOnly));
+                            tagChanger.SearchComponentName(nameof(ParticleSystem));
+                            Debug.Log($"RootObjectから{nameof(ParticleSystem)}を含むGameObjectを取得しました");
+                            EditorUtility.SetDirty(tagChanger);
+                        }
+                        var testtt = tagChanger.GetComponentsInChildren<ParticleSystem>(true);
+                        for (int i = 0; i < testtt.Length; i++)
+                        {
+                            Debug.Log(testtt[i].name);
+                        }
+                    }
+                }
+                #endregion
+                EditorGUI.indentLevel--;
                 #endregion
 
             }
             #endregion
 
             #region // 対象・対象外設定
-            _isOpenEnabled = EditorGUILayout.Foldout(_isOpenEnabled, "Tagの変更処理の対象・対象外設定");
-            if (_isOpenEnabled)
+            tagChanger.isOpenEnabled = EditorGUILayout.Foldout(tagChanger.isOpenEnabled, "Tagの変更処理の対象・対象外設定");
+            if (tagChanger.isOpenEnabled == true)
             {
                 if (tagChanger.targetObjects.Length == 0)
                 {
                     EditorGUILayout.HelpBox("対象となるGameObjectが設定されていません", MessageType.Warning);
                 }
 
-                EditorGUI.BeginChangeCheck();
                 for (int i = 0; i < tagChanger.targetObjects.Length; i++)
                 {
                     GameObject keyObject;
@@ -374,15 +527,19 @@ namespace PogapogaEditor.Component
 
                     if (i == 0)
                     {
+                        // 一括変更処理
                         _targetFlagAllEnabled = EditorGUILayout.Toggle(tagChanger.targetFlagAllEnabled, GUILayout.Width(_toggleWidh));
                         if (_targetFlagAllEnabled != tagChanger.targetFlagAllEnabled)
                         {
+                            Undo.RecordObject(tagChanger, nameof(GameObjectTagChangerVRChatOnly));
                             tagChanger.targetFlagAllEnabled = _targetFlagAllEnabled;
                             GameObject[] keyObjects = tagChanger.targetFlagDict.Keys.ToArray();
                             for (int ki = 0; ki < keyObjects.Length; ki++)
                             {
                                 tagChanger.targetFlagDict[keyObjects[ki]] = tagChanger.targetFlagAllEnabled;
                             }
+                            tagChanger.SaveDictionary();
+                            EditorUtility.SetDirty(tagChanger);
                         }
                     }
 
@@ -395,39 +552,75 @@ namespace PogapogaEditor.Component
                         }
 
                         bool tmpFlag = EditorGUILayout.Toggle(tagChanger.targetFlagDict[keyObject], GUILayout.Width(_toggleWidh));
-                        tagChanger.targetFlagDict[keyObject] = tmpFlag;
+                        if (tmpFlag != tagChanger.targetFlagDict[keyObject])
+                        {
+                            Undo.RecordObject(tagChanger, nameof(GameObjectTagChangerVRChatOnly));
+                            tagChanger.targetFlagDict[keyObject] = tmpFlag;
+
+                            tagChanger.SaveDictionary();
+                            EditorUtility.SetDirty(tagChanger);
+                        }
                         EditorGUILayout.ObjectField(keyObject, typeof(GameObject), true);
                     }
-                }
-                if (EditorGUI.EndChangeCheck())
-                {
-                    tagChanger.SaveDictionary();
-                    EditorUtility.SetDirty(tagChanger);
                 }
             }
             #endregion
 
             #region // その他
-            _isOpenOther = EditorGUILayout.Foldout(_isOpenOther, "その他");
-            if ( _isOpenOther )
-            {
+            tagChanger.isOpenOther = EditorGUILayout.Foldout(tagChanger.isOpenOther, "その他");
+            if (tagChanger.isOpenOther == true)
+            {     
+                _skipConfirmation = EditorGUILayout.ToggleLeft("確認用ダイアログの表示を省略する", tagChanger.skipConfirmation);
+                if (_skipConfirmation != tagChanger.skipConfirmation)
+                {
+                    Undo.RecordObject(tagChanger, nameof(GameObjectTagChangerVRChatOnly));
+                    tagChanger.skipConfirmation = _skipConfirmation;
+                    EditorUtility.SetDirty(tagChanger);
+                }
+
                 if (tagChanger.targetObjects.Length == 0)
                 {
                     EditorGUILayout.HelpBox("対象となるGameObjectが設定されていません", MessageType.Warning);
                 }
                 else
                 {
-                    if (GUILayout.Button("List内のGameObjectを選択状態にします")) 
+                    if (GUILayout.Button("List内のGameObjectを選択状態にする")) 
                     {
                         Selection.objects = tagChanger.targetObjects.ToArray();
                         Debug.Log("List内のGameObjectを選択状態にしました");
                     }
+
+                    if (GUILayout.Button("処理対象のGameObjectをActiveにする"))
+                    {
+                        bool dialogFlag = this.DisplayDialog("処理対象のGameObjectをActiveにする");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObjects(tagChanger.targetObjects, nameof(GameObjectTagChangerVRChatOnly));
+                            foreach (GameObject targetObject in tagChanger.targetObjects)
+                            {
+                                targetObject.SetActive(true);
+                            }
+                        }
+                        Debug.Log("処理対象のGameObjectをActiveにしました");
+                    }
+                    if (GUILayout.Button("処理対象のGameObjectを非Activeにする"))
+                    {
+                        bool dialogFlag = this.DisplayDialog("処理対象のGameObjectを非Activeにする");
+                        if (dialogFlag == true)
+                        {
+                            Undo.RecordObjects(tagChanger.targetObjects, nameof(GameObjectTagChangerVRChatOnly));
+                            foreach (GameObject targetObject in tagChanger.targetObjects)
+                            {
+                                targetObject.SetActive(false);
+                            }
+                        }
+                        Debug.Log("処理対象のGameObjectを非Activeにしました");
+                    }
                 }
             }
             #endregion
-
             serializedObject.ApplyModifiedProperties();
-        }  
+        }
     }
 }
 #endif
